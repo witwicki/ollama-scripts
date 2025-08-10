@@ -1,0 +1,39 @@
+#!/bin/bash
+if [[ $# -ne 2 ]]; then
+  echo -e "\nUSAGE: ./customize-modelfile <name-of-model> <custom-suffix>"
+  echo "  e.g., ./customize-modelfile gemma3 special"
+  echo "     will prompt you to edit the modelfile and create a new model named gemma3-special"
+  exit 1
+fi
+
+# check that model exists and is pulled
+exists=$(ollama ls | grep "$1 ")
+if [[ -z "$exists" ]]; then
+  echo -e "\nError: not finding $1... is that the right name? has the model been downloaded?"
+  exit 1
+fi
+
+# store files in a subdirectory modelfiles in the directory of this script
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+MODELFILES_DIR="$SCRIPT_DIR/modelfiles"
+mkdir -p $MODELFILES_DIR
+
+# create and prompt to edit custom model file
+ollama show $1 --modelfile > $MODELFILES_DIR/$1.modelfile
+cp $MODELFILES_DIR/$1.modelfile $MODELFILES_DIR/$1-$2.modelfile
+# ...using user's default editor, or if not set, nano 
+if [[ -z "${EDITOR}" ]]; then
+  if [[ -n "${VISUAL}" ]]; then
+    EDITOR=$VISUAL
+  else
+    EDITOR=nano
+  fi                                                                      
+fi
+echo -e "\nOpening up \033[1m$EDITOR\033[0m to customize $1-$2.modelfile.  If you prefer a different editor, export environment variable \$EDITOR accordingly."
+echo -e "Press <enter> to continue..."
+read confirmation
+$EDITOR $MODELFILES_DIR/$1-$2.modelfile
+
+# make this a model in our ollama list
+ollama create $1-$2 -f $MODELFILES_DIR/$1-$2.modelfile
+echo -e "\nCreated new ollama model $1-$2 that differs from the original as\n$(diff $MODELFILES_DIR/$1.modelfile $MODELFILES_DIR/$1-$2.modelfile)\n"
