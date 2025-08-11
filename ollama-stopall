@@ -1,0 +1,9 @@
+#!/bin/bash
+# Stop all ollama models that are currently loaded
+
+ollama ps | while read -r first_word rest_of_line; do
+  if [[ "$first_word" != "NAME" ]]; then
+    ollama stop $first_word
+    echo "Stopped $first_word."
+  fi
+done
